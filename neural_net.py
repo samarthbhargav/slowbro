@@ -7,18 +7,22 @@ from pytocl.car import State
 
 class FeatureTransformer:
 
-	exclude_from_sensor_dict = {"current_lap_time",
-	"last_lap_time", "opponents", "race_position", "wheel_velocities", "distance_raced"}
+	
 
-	def __init__(self):
+	def __init__(self, exclude_from_sensor_dict=None, n_history=10, size=35):
 		self.previous_states = []
-		self.n_history = 10
-		self.size = 35
+		self.n_history = n_history
+		self.size = size
 
+		if not exclude_from_sensor_dict:
+			exclude_from_sensor_dict = {"current_lap_time",
+				"last_lap_time", "opponents", "race_position", "wheel_velocities", "distance_raced"}
+
+		self.exclude_from_sensor_dict = exclude_from_sensor_dict
 
 	def transform(self, state):
 		sensor_dict = vars(state)
-		sensors = list(sensor_dict.keys() - FeatureTransformer.exclude_from_sensor_dict)
+		sensors = list(sensor_dict.keys() - self.exclude_from_sensor_dict)
 		sensors.sort(key=lambda _: _[0])
 
 		feature_vector = []
@@ -44,6 +48,7 @@ class CarControl(nn.Module):
 	def __init__(self, n_inputs, linear_sizes):
 		super(CarControl, self).__init__()
 
+		print("Number of inputs: {}".format(n_inputs))
 		assert len(linear_sizes) == 2
 		self.input_layer = nn.Linear(n_inputs, linear_sizes[0]) 
 		self.hidden_layer = nn.Linear(linear_sizes[0], linear_sizes[1])
@@ -52,22 +57,20 @@ class CarControl(nn.Module):
 		self.output_acceleration = nn.Linear(linear_sizes[1], 1)
 		self.output_brake = nn.Linear(linear_sizes[1], 1)
 
-
 	def forward(self, x):
-		x = Variable(x)
-		i1 = F.relu(self.input_layer(x))
-		i2 = F.relu(self.hidden_layer(i1))
+		x = Variable(x, requires_grad=True)
+		i1 = F.sigmoid(self.input_layer(x))
+		i2 = F.sigmoid(self.hidden_layer(i1))
 		# steering is a real number 
 		# TODO: should it be clamped?
-		steering = self.output_steering(i2)
+		steering = torch.clamp(self.output_steering(i2), min=-1, max=1)
 
 		# brake is in [0, 1]
-		brake = F.sigmoid(self.output_brake(i2))
+		brake = torch.clamp(F.sigmoid(self.output_brake(i2)), min=0, max=0.25)
 
 		# acceleration is in [0, 1] TODO verify
-		acceleration = F.sigmoid(self.output_acceleration(i2))
+		acceleration = torch.clamp(self.output_acceleration(i2), min=0.1, max=1)
 		
-
 		return torch.cat([steering, brake, acceleration])
 
 

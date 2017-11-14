@@ -1,7 +1,7 @@
 from pytocl.driver import Driver
 from pytocl.car import State, Command
 
-from neural_net import CarControl, FeatureTransformer
+from train_simple_neural_driver import SimpleCarControl, SimpleFeatureTransformer, SimpleState
 
 import sys
 import torch
@@ -61,12 +61,12 @@ class NeuralDriver(Driver):
 
 
 if __name__ == '__main__':
-    feature_transformer = FeatureTransformer()
+    feature_transformer = SimpleFeatureTransformer()
 
     if len(sys.argv) == 2:
         control = torch.load(sys.argv[1])
     else:
-        control = CarControl(feature_transformer.size, [10, 10])
+        control = SimpleCarControl([10, 10])
     sys.argv = sys.argv[:1]
 
     driver = NeuralDriver(feature_transformer, control)
