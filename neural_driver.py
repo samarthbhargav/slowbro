@@ -2,6 +2,7 @@ from pytocl.driver import Driver
 from pytocl.car import State, Command
 
 from neural_net import CarControl, FeatureTransformer
+from simple_neural_driver import *
 
 import sys
 import torch
@@ -64,6 +65,7 @@ if __name__ == '__main__':
     feature_transformer = FeatureTransformer()
 
     if len(sys.argv) == 2:
+        print("Loading model from {}".format(sys.argv[1]))
         control = torch.load(sys.argv[1])
     else:
         control = CarControl(feature_transformer.size, [10, 10])

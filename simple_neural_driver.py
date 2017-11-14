@@ -6,7 +6,7 @@ from train_simple_neural_driver import SimpleCarControl, SimpleFeatureTransforme
 import sys
 import torch
 
-class NeuralDriver(Driver):
+class SimpleNeuralDriver(Driver):
     def __init__(self, feature_transformer, network):
         super().__init__()
 
@@ -26,8 +26,8 @@ class NeuralDriver(Driver):
 
         command = Command()
         command.accelerator = acceleration
-        command.brake = brake
-        command.steering = steering
+        command.brake = 1 if brake > 0.5 else 0 
+        command.steering =  steering
 
 
         # TODO make handling the gear a part of the neural net
@@ -69,7 +69,7 @@ if __name__ == '__main__':
         control = SimpleCarControl([10, 10])
     sys.argv = sys.argv[:1]
 
-    driver = NeuralDriver(feature_transformer, control)
+    driver = SimpleNeuralDriver(feature_transformer, control)
 
     from pytocl.main import main as pytocl_main
 
