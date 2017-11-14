@@ -15,6 +15,10 @@ from neural_net import CarControl, FeatureTransformer
 from pytocl.main import main as pytocl_main
 from neural_driver import NeuralDriver
 
+
+FNULL = open(os.devnull, 'w')
+
+
 class EvolutionConfig:
 	def __init__(self, n_candidates = 10, 
 		n_trails = 100, 
@@ -37,7 +41,8 @@ class PyTorchRandomGenerator:
 		new_model = self.clone_model(model)
 		#print(vars(new_model))
 		for param_name, param in new_model._parameters.items():
-			param.add_(Variable(torch.rand(param.size())))
+			# generate add random noise in [-1, 1]
+			param.add_(Variable(torch.rand(param.size()) * 2 - 1))
 		return new_model
 
 	def evolve(self, seed_model, n_candidates):
@@ -64,6 +69,7 @@ class SimulatedEvolution:
 
 	def simulate(self):
 		generations = [self.seed_model]
+		max_fitness = 0.0
 		for trail_number in range(self.evolution_config.n_trails):
 			self._log("Executing trail {}".format(trail_number))
 			candidate_set = []
@@ -75,7 +81,9 @@ class SimulatedEvolution:
 			candidate_set.sort(key=lambda _: _[1])
 			# keep the ones that score the highest
 			generations = candidate_set[self.evolution_config.n_discard:]
-
+			max_fitness = max(generations, key=lambda _: _[1])
+			generations = [g[0] for g in generations]
+			print("Max fitness: {}".format(max_fitness))
 			if trail_number % self.evolution_config.save_frequency == 0:
 				self.model_save_routine.save(random.choice(generations), trail_number) 
 
@@ -112,14 +120,12 @@ class DriverEnvironment(FitnessFunction):
 
 	def evaluate_fitness(self, feature_transformer, model):
 		try: 
-			proc = subprocess.Popen(self.command.split())
+			proc = subprocess.Popen(self.command.split(), stdout=FNULL)
 
 			return_code = proc.poll()
 			if return_code is not None:
 				raise ValueError("Some error occurred. Either torcs isn't installed or the config file is not present")
 			
-
-			print("Driver is in slowbro")
 			
 			pytocl_main(NeuralDriver(feature_transformer, model))
 			os.wait()
@@ -130,8 +136,9 @@ class DriverEnvironment(FitnessFunction):
 
 			# better fitness!
 			print(end_state)
-			
-			return end_state.distance_from_start
+			print()
+
+			return end_state.distance_raced
 		finally:
 			if proc:
 				try: 
@@ -144,8 +151,10 @@ class DriverEnvironment(FitnessFunction):
 if __name__ == '__main__':
 	feature_transformer = FeatureTransformer()
 	seed_model = CarControl(feature_transformer.size, [50, 50])
+	evolution_config = EvolutionConfig(n_candidates=3, n_discard=1, n_trails=1000)
 	evolver = SimulatedEvolution(seed_model, feature_transformer,
 					generator=PyTorchRandomGenerator(), 
-					fitness_function=DriverEnvironment("../quickrace.xml"),
-					model_save_routine=PyTorchSaveModelRoutine("models", "initial_trails"))
+					fitness_function=DriverEnvironment("./quickrace.xml"),
+					model_save_routine=PyTorchSaveModelRoutine("models", "initial_trails"),
+					evolution_config=evolution_config)
 	evolver.simulate()
