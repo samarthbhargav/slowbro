@@ -10,16 +10,10 @@ import subprocess
 
 from pytocl.main import main
 from my_driver import MyDriver
+from simple_neural_driver import SimpleNeuralDriver
 
-
-
-
-
-
-if __name__ == '__main__':
-	assert len(sys.argv) == 2, "Path to config is missing"
-
-	command = "torcs -r {}".format(os.path.abspath(sys.argv[1]))
+def run(driver, config_path):
+	command = "torcs -r {}".format(os.path.abspath(config_path))
 
 	sys.argv = sys.argv[:1]
 
@@ -30,11 +24,10 @@ if __name__ == '__main__':
 		return_code = proc.poll()
 		if return_code is not None:
 			raise ValueError("Some error occurred. Either torcs isn't installed or the config file is not present")
-		
 
 		print("Driver is in slowbro")
 		
-		main(MyDriver())
+		main(driver)
 		os.wait()
 		list_of_files = glob.glob('drivelogs/*') # * means all if need specific format then *.csv
 		latest_file = max(list_of_files, key=os.path.getctime)
@@ -49,4 +42,12 @@ if __name__ == '__main__':
 			except:
 				# ignore errors
 				...
+
+
+
+
+
+if __name__ == '__main__':
+	assert len(sys.argv) == 2, "Path to config is missing"
+	run(SimpleNeuralDriver(), sys.argv[1])
 

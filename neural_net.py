@@ -9,14 +9,15 @@ class FeatureTransformer:
 
 	
 
-	def __init__(self, exclude_from_sensor_dict=None, n_history=10, size=35):
+	def __init__(self, exclude_from_sensor_dict=None, n_history=10, size=31):
 		self.previous_states = []
 		self.n_history = n_history
 		self.size = size
 
 		if not exclude_from_sensor_dict:
 			exclude_from_sensor_dict = {"current_lap_time",
-				"last_lap_time", "opponents", "race_position", "wheel_velocities", "distance_raced"}
+				"last_lap_time", "opponents", "race_position", "wheel_velocities",
+				 "distance_raced", "distance_from_start", "fuel", "gear", "rpm"}
 
 		self.exclude_from_sensor_dict = exclude_from_sensor_dict
 
@@ -45,34 +46,26 @@ class FeatureTransformer:
 
 class CarControl(nn.Module):
 
-	def __init__(self, n_inputs, linear_sizes):
+	def __init__(self, n_inputs, layer_sizes):
 		super(CarControl, self).__init__()
 
 		print("Number of inputs: {}".format(n_inputs))
-		assert len(linear_sizes) == 2
-		self.input_layer = nn.Linear(n_inputs, linear_sizes[0]) 
-		self.hidden_layer = nn.Linear(linear_sizes[0], linear_sizes[1])
-	
-		self.output_steering = nn.Linear(linear_sizes[1], 1)
-		self.output_acceleration = nn.Linear(linear_sizes[1], 1)
-		self.output_brake = nn.Linear(linear_sizes[1], 1)
+		self.hidden_layers = []
+		prev_size = n_inputs
+		for layer_size in layer_sizes:
+			self.hidden_layers.append(nn.Linear(prev_size, layer_size))
+			prev_size = layer_size
+
+		self.output = nn.Linear(layer_sizes[-1], 3)
 
 	def forward(self, x):
 		x = Variable(x, requires_grad=True)
-		i1 = F.sigmoid(self.input_layer(x))
-		i2 = F.sigmoid(self.hidden_layer(i1))
-		# steering is a real number 
-		# TODO: should it be clamped?
-		steering = torch.clamp(self.output_steering(i2), min=-1, max=1)
 
-		# brake is in [0, 1]
-		brake = torch.clamp(F.sigmoid(self.output_brake(i2)), min=0, max=0.25)
+		intermediate = x
+		for layer in self.hidden_layers:
+			intermediate = F.sigmoid(layer(intermediate))
 
-		# acceleration is in [0, 1] TODO verify
-		acceleration = torch.clamp(self.output_acceleration(i2), min=0.1, max=1)
-		
-		return torch.cat([steering, brake, acceleration])
-
+		return self.output(intermediate)
 
 if __name__ == '__main__':
 	
