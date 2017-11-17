@@ -7,8 +7,6 @@ from pytocl.car import State
 
 class FeatureTransformer:
 
-	
-
 	def __init__(self, exclude_from_sensor_dict=None, n_history=10, size=31):
 		self.previous_states = []
 		self.n_history = n_history
@@ -50,25 +48,21 @@ class CarControl(nn.Module):
 		super(CarControl, self).__init__()
 
 		print("Number of inputs: {}".format(n_inputs))
-		self.hidden_layers = []
-		prev_size = n_inputs
-		for layer_size in layer_sizes:
-			self.hidden_layers.append(nn.Linear(prev_size, layer_size))
-			prev_size = layer_size
-
+		self.hidden_layer_1 = nn.Linear(n_inputs, layer_sizes[0])
+		self.hidden_layer_2 = nn.Linear(layer_sizes[0], layer_sizes[1])
+		self.hidden_layer_3 = nn.Linear(layer_sizes[1], layer_sizes[2])
 		self.output = nn.Linear(layer_sizes[-1], 3)
 
 	def forward(self, x):
 		x = Variable(x, requires_grad=True)
 
-		intermediate = x
-		for layer in self.hidden_layers:
-			intermediate = F.sigmoid(layer(intermediate))
+		intermediate_1 = F.sigmoid(self.hidden_layer_1(x))
+		intermediate_2 = F.sigmoid(self.hidden_layer_2(intermediate_1))
+		intermediate_3 = F.sigmoid(self.hidden_layer_3(intermediate_2))
 
-		return self.output(intermediate)
+		return self.output(intermediate_3)
 
 if __name__ == '__main__':
-	
 
 	s = State({'angle': '0.008838', 'wheelSpinVel': ['67.9393', '68.8267', '71.4009', '71.7363'],
 			'rpm': '4509.31', 'focus': ['26.0077', '27.9798', '30.2855', '33.0162', '36.3006'],
@@ -99,7 +93,4 @@ if __name__ == '__main__':
 		random_noise = torch.rand(weight.size())
 		weight.add_(Variable(random_noise))
 		print(weight)
-
-
-
 
