@@ -53,8 +53,8 @@ class SupervisedDriver(Driver):
 		loss = self.loss(y_predicted, y_true)		
 		loss.backward()
 
-		if not np.isnan(loss.data.numpy()):
-			self.optimizer.step()
+		#if not np.isnan(loss.data.numpy()):
+		self.optimizer.step()
 
 		if self.call_number % 1000 == 0:
 			print("Step: {}".format(self.call_number))
@@ -66,21 +66,28 @@ class SupervisedDriver(Driver):
 
 		return command
 
-
 	def on_shutdown(self):
 		torch.save(self.trainee, self.persist_path)
 
 if __name__ == '__main__':
 
 	# python <file> config train/retrain persist_path
-	if len(sys.argv) != 4:
+	if len(sys.argv) != 5:
 		raise ValueError()
+
+	number_of_iterations = sys.argv[4]
+
+	model_path = sys.argv[3]
+
+	config_path = sys.argv[1]
 
 	feature_transformer = FeatureTransformer()
 
 	if sys.argv[2] == "retrain":
-		trainee = torch.load(sys.argv[3])
+		trainee = torch.load(model_path)
 	else:
 		trainee = CarControl(feature_transformer.size, [200, 50, 10])
 
-	run(SupervisedDriver(trainee, feature_transformer, sys.argv[3]), sys.argv[1])
+	for iteration in range(1, int(number_of_iterations)+1):
+		print("Train Iteration", iteration)
+		run(SupervisedDriver(trainee, feature_transformer, model_path), config_path)
