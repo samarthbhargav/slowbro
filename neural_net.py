@@ -23,14 +23,16 @@ class FeatureTransformer:
 		sensor_dict = vars(state)
 		sensors = list(sensor_dict.keys() - self.exclude_from_sensor_dict)
 		sensors.sort(key=lambda _: _[0])
+		self.add_state_to_history(sensors)
 
 		feature_vector = []
-		for k in sensors:
-			v = sensor_dict[k]
-			if isinstance(v, tuple):
-				feature_vector.extend(v)
-			else:
-				feature_vector.append(v)
+		for s in self.previous_states:
+			for k in s:
+				v = sensor_dict[k]
+				if isinstance(v, tuple):
+					feature_vector.extend(v)
+				else:
+					feature_vector.append(v)
 
 		## TODO NORM THE VECTOR!
 		return torch.FloatTensor(feature_vector)
@@ -39,7 +41,12 @@ class FeatureTransformer:
 		#if len(self.previous_states) > self.n_history:
 		#	self.previous_states.pop(0)
 
-
+	def add_state_to_history(self, state):
+		self.previous_states.append(state)
+		self.previous_states = self.previous_states[::-1]
+		self.previous_states = self.previous_states[:self.n_history]
+		while len(self.previous_states) < self.n_history:
+			self.previous_states.insert(0, self.previous_states[0])
 
 
 class CarControl(nn.Module):
@@ -48,7 +55,7 @@ class CarControl(nn.Module):
 		super(CarControl, self).__init__()
 
 		print("Number of inputs: {}".format(n_inputs))
-		self.hidden_layer_1 = nn.Linear(n_inputs, layer_sizes[0])
+		self.hidden_layer_1 = nn.Linear(n_inputs * 10, layer_sizes[0])
 		self.hidden_layer_2 = nn.Linear(layer_sizes[0], layer_sizes[1])
 		self.hidden_layer_3 = nn.Linear(layer_sizes[1], layer_sizes[2])
 		self.output = nn.Linear(layer_sizes[-1], 3)
