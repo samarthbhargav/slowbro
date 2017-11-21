@@ -42,8 +42,7 @@ class FeatureTransformer:
 		#	self.previous_states.pop(0)
 
 	def add_state_to_history(self, state):
-		self.previous_states.append(state)
-		self.previous_states = self.previous_states[::-1]
+		self.previous_states.insert(0, state)
 		self.previous_states = self.previous_states[:self.n_history]
 		while len(self.previous_states) < self.n_history:
 			self.previous_states.insert(0, self.previous_states[0])

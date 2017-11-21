@@ -31,7 +31,7 @@ class NeuralDriver(Driver):
         command = Command()
         command.accelerator = acceleration
         command.brake = brake
-        command.steering = steering - 0.5
+        command.steering = steering
 
 
         # TODO make handling the gear a part of the neural net
