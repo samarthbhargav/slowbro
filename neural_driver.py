@@ -24,6 +24,9 @@ class NeuralDriver(Driver):
         #print()
         feature_vector = self.feature_transformer.transform(car_state)
         steering, brake, acceleration = self.network(feature_vector).data
+        print("steering", steering)
+        print("brake", brake)
+        print("acceleration", acceleration)
 
         command = Command()
         command.accelerator = acceleration
