@@ -41,7 +41,7 @@ class Client:
 
     def __repr__(self):
         return '{s.__class__.__name__}({s.hostaddr!r}) -- {s.state.name}' \
-            ''.format(s=self)
+               ''.format(s=self)
 
     def run(self):
         """Enters cyclic execution of the client network interface."""
@@ -122,9 +122,10 @@ class Client:
 
             if not buffer:
                 return
-
             elif MSG_SHUTDOWN in buffer:
                 _logger.info('Server requested shutdown.')
+                self.stop()
+            elif hasattr(self.driver, "stop_flag") and self.driver.stop_flag.value:
                 self.stop()
 
             elif MSG_RESTART in buffer:

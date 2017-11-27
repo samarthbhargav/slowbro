@@ -14,7 +14,7 @@ class NeuralDriver(Driver):
         self.feature_transformer = feature_transformer
         self.network = network
         self.frame = 0
-        
+
 
     def drive(self, car_state: State) -> Command:
         """
@@ -41,7 +41,7 @@ class NeuralDriver(Driver):
         #         command.gear = car_state.gear + 1
         # elif car_state.rpm < 2500 and car_state.gear > 1:
         #     command.gear = car_state.gear - 1
-        
+
         if acceleration > 0:
             if car_state.rpm > 8000:
                 command.gear = car_state.gear + 1
@@ -51,11 +51,11 @@ class NeuralDriver(Driver):
 
         if not command.gear:
             command.gear = car_state.gear or 1
-        
+
 
         if self.data_logger:
             self.data_logger.log(car_state, command)
-        
+
         if self.frame % 1000 == 0:
             print(command)
             print(car_state.distance_raced)
