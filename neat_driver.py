@@ -3,6 +3,7 @@ import os
 import pickle
 import subprocess
 import threading
+import time
 
 import neat
 
@@ -10,7 +11,6 @@ from neural_net import FeatureTransformer
 from pytocl.car import State, Command
 from pytocl.driver import Driver
 from pytocl.main import main as pytocl_main
-import time
 
 FNULL = open("./logs.txt", 'w')
 
@@ -100,15 +100,8 @@ class NeatDriver(Driver):
         command = Command()
         command.accelerator = acceleration
         command.brake = brake
-        command.steering = steering
-
-        # TODO make handling the gear a part of the neural net
-        # if car_state.gear == 0:
-        #     command.gear = 1
-        # elif car_state.rpm > 8000:
-        #         command.gear = car_state.gear + 1
-        # elif car_state.rpm < 2500 and car_state.gear > 1:
-        #     command.gear = car_state.gear - 1
+        # push steering into a [-1, 1] range
+        command.steering = (steering * 2) - 1
 
         if acceleration > 0:
             if car_state.rpm > 8000:
@@ -123,15 +116,14 @@ class NeatDriver(Driver):
         if self.data_logger:
             self.data_logger.log(car_state, command)
 
-        # TODO early stopping
-
         if self.call_number % 100 == 0:
             print(command)
             print(car_state.distance_raced)
             print(self.stop_flag.value)
             print()
 
-        if self.call_number > 1000:
+        # early stopping
+        if self.call_number > 100 and car_state.distance_raced < 10:
             self.stop_flag.set(True)
 
         self.call_number += 1
