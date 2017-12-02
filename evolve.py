@@ -1,15 +1,12 @@
 import copy
-import glob
 import os
-import pickle
 import random
 import subprocess
 
 import torch
-from torch.autograd import Variable
 
 from neural_driver import NeuralDriver
-from neural_net import CarControl, FeatureTransformer
+from neural_net import FeatureTransformer
 from pytocl.main import main as pytocl_main
 
 FNULL = open(os.devnull, 'w')
@@ -19,42 +16,61 @@ class EvolutionConfig:
     def __init__(self, n_candidates=10,
                  n_trails=100,
                  n_discard=8,
-                 save_frequency=1):
+                 save_frequency=1,
+                 mutation_normal_mean=0,
+                 mutation_normal_std=0.001,
+                 mutation_probability=0.3):
         self.n_candidates = n_candidates  # the number of candidates to generate
         self.n_trails = n_trails  # number of trails
         self.n_discard = n_discard  # number of candidates to discard
         self.save_frequency = save_frequency
+        self.mutation_normal_mean = mutation_normal_mean
+        self.mutation_normal_std = mutation_normal_std
+        self.mutation_probability = mutation_probability
 
 
-class PyTorchRandomGenerator:
-    # TODO Anneal the randomness?
+def add_normal_noise(tensor, mean, std_dev):
+    means = torch.zeros(tensor.size())
+    means.fill_(mean)
+    noise = torch.normal(means, std_dev)
+    tensor.data.add_(noise)
 
+
+class Mutator:
     def clone_model(self, model):
         return copy.deepcopy(model)
 
-    def mutate(self, model):
+    def mutate(self, model, config: EvolutionConfig):
+
         # return a single mutated model
         new_model = self.clone_model(model)
-        # print(vars(new_model))
-        for param_name, param in new_model._parameters.items():
-            # generate add random noise in [-1, 1]
-            param.add_(Variable(torch.rand(param.size()) * 2 - 1))
+
+        if random.random() >= config.mutation_probability:
+            return new_model
+
+        # print("\n".join(str(p) for p in new_model.parameters()))
+        for param in new_model.parameters():
+            add_normal_noise(param, config.mutation_normal_mean, config.mutation_normal_std)
+        # print("#" * 100)
+        # print("\n".join(str(p) for p in new_model.parameters()))
+
         return new_model
 
-    def evolve(self, seed_model, n_candidates):
-        for i in range(n_candidates):
-            yield self.mutate(seed_model)
+    def evolve(self, seed_model, config: EvolutionConfig):
+        for i in range(config.n_candidates):
+            yield self.mutate(seed_model, config)
 
 
 class SimulatedEvolution:
-    def __init__(self, seed_model, feature_transformer, generator,
+    def __init__(self, seed_models, feature_transformer, mutator,
                  fitness_function, model_save_routine, evolution_config=None):
-        self.seed_model = seed_model
+        self.seed_models = seed_models
         self.feature_transformer = feature_transformer
+
         # default params if not defined
         self.evolution_config = evolution_config if evolution_config else EvolutionConfig()
 
-        self.generator = generator
+        self.mutator = mutator
         self.fitness_function = fitness_function
         self.model_save_routine = model_save_routine
 
@@ -62,13 +78,12 @@ class SimulatedEvolution:
         print(statement)
 
     def simulate(self):
-        generations = [self.seed_model]
-        max_fitness = 0.0
+        generations = self.seed_models
         for trail_number in range(self.evolution_config.n_trails):
             self._log("Executing trail {}".format(trail_number))
             candidate_set = []
             for generation in generations:
-                for candidate in self.generator.evolve(generation, self.evolution_config.n_candidates):
+                for candidate in self.mutator.evolve(generation, self.evolution_config):
                     candidate_set.append((candidate,
                                           self.fitness_function.evaluate_fitness(self.feature_transformer, candidate)))
 
@@ -100,17 +115,17 @@ class PyTorchSaveModelRoutine:
         torch.save(model, os.path.join(self.path_, "{0:03d}_model.pty".format(n_trail)))
 
 
-class FitnessFunction:
-    def evaluate_fitness(self, model):
-        pass
-
-
-class DriverEnvironment(FitnessFunction):
-    def __init__(self, race_config_path, logs_path="drivelogs/*"):
+class DriverEnvironment:
+    def __init__(self, race_config_folder, logs_path="drivelogs/*"):
+        files = os.listdir(race_config_folder)
+        files = [os.path.join(race_config_folder, f) for f in files]
+        race_config_path = random.choice(files)
+        print("Running file: {}".format(race_config_path))
         self.command = "torcs -r {}".format(os.path.abspath(race_config_path))
         self.logs_path = logs_path
 
     def evaluate_fitness(self, feature_transformer, model):
+        proc = None
         try:
             proc = subprocess.Popen(self.command.split(), stdout=FNULL)
 
@@ -118,17 +133,10 @@ class DriverEnvironment(FitnessFunction):
             if return_code is not None:
                 raise ValueError("Some error occurred. Either torcs isn't installed or the config file is not present")
 
-            pytocl_main(NeuralDriver(feature_transformer, model))
+            neural_driver = NeuralDriver(feature_transformer, model)
+            pytocl_main(neural_driver)
             os.wait()
-            list_of_files = glob.glob(self.logs_path)
-            latest_file = max(list_of_files, key=os.path.getctime)
-            print(latest_file)
-            end_state, end_command = pickle.load(open(latest_file, "rb"))
-
-            # better fitness!
-            print(end_state)
-            print()
-
+            end_state = neural_driver.last_state
             return end_state.distance_raced
         finally:
             if proc:
@@ -140,12 +148,14 @@ class DriverEnvironment(FitnessFunction):
 
 
 if __name__ == '__main__':
+    seed_models = ["models/supervisor/77_intermediate.pty", "models/supervisor/3.pty"]
+    seed_models = [torch.load(sm) for sm in seed_models]
     feature_transformer = FeatureTransformer()
-    seed_model = CarControl(feature_transformer.size, [50, 50])
+
     evolution_config = EvolutionConfig(n_candidates=3, n_discard=1, n_trails=1000)
-    evolver = SimulatedEvolution(seed_model, feature_transformer,
-                                 generator=PyTorchRandomGenerator(),
-                                 fitness_function=DriverEnvironment("./quickrace.xml"),
-                                 model_save_routine=PyTorchSaveModelRoutine("models", "initial_trails"),
+    evolver = SimulatedEvolution(seed_models, feature_transformer,
+                                 mutator=Mutator(),
+                                 fitness_function=DriverEnvironment("./config_files"),
+                                 model_save_routine=PyTorchSaveModelRoutine("models", "3_77"),
                                  evolution_config=evolution_config)
     evolver.simulate()

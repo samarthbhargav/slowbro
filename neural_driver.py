@@ -1,11 +1,10 @@
-from pytocl.driver import Driver
-from pytocl.car import State, Command
+import sys
+
+import torch
 
 from neural_net import CarControl, FeatureTransformer
 from simple_neural_driver import *
 
-import sys
-import torch
 
 class NeuralDriver(Driver):
     def __init__(self, feature_transformer, network):
@@ -14,25 +13,24 @@ class NeuralDriver(Driver):
         self.feature_transformer = feature_transformer
         self.network = network
         self.frame = 0
-
+        self.last_state = None
 
     def drive(self, car_state: State) -> Command:
         """
         Produces driving command in response to newly received car state.
         """
-        #print(car_state)
-        #print()
+        # print(car_state)
+        # print()
         feature_vector = self.feature_transformer.transform(car_state)
         steering, brake, acceleration = self.network(feature_vector).data
-        print("steering", steering)
-        print("brake", brake)
-        print("acceleration", acceleration)
+        # print("steering", steering)
+        # print("brake", brake)
+        # print("acceleration", acceleration)
 
         command = Command()
         command.accelerator = acceleration
         command.brake = brake
         command.steering = steering
-
 
         # TODO make handling the gear a part of the neural net
         # if car_state.gear == 0:
@@ -52,15 +50,17 @@ class NeuralDriver(Driver):
         if not command.gear:
             command.gear = car_state.gear or 1
 
-
         if self.data_logger:
             self.data_logger.log(car_state, command)
 
         if self.frame % 1000 == 0:
-            print(command)
-            print(car_state.distance_raced)
-            print()
+            # print(command)
+            # print(car_state)
+            # print()
+            ...
         self.frame = (1 + self.frame) % 100000
+
+        self.last_state = car_state
         return command
 
 
@@ -79,3 +79,5 @@ if __name__ == '__main__':
     from pytocl.main import main as pytocl_main
 
     pytocl_main(driver)
+
+    print(driver.last_state)
