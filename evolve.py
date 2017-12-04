@@ -90,7 +90,7 @@ class SimulatedEvolution:
             candidate_set.sort(key=lambda _: _[1])
             # keep the ones that score the highest
             generations = candidate_set[self.evolution_config.n_discard:]
-            max_fitness = max(generations, key=lambda _: _[1])
+            max_fitness = max(generations, key=lambda _: _[1])[1]
             generations = [g[0] for g in generations]
             print("Max fitness: {}".format(max_fitness))
             if trail_number % self.evolution_config.save_frequency == 0:
@@ -137,6 +137,7 @@ class DriverEnvironment:
             pytocl_main(neural_driver)
             os.wait()
             end_state = neural_driver.last_state
+
             return end_state.distance_raced
         finally:
             if proc:
