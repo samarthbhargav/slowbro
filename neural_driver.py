@@ -2,6 +2,7 @@ import sys
 import math
 import torch
 
+from random import random
 from neural_net import CarControl, FeatureTransformer
 from simple_neural_driver import *
 
@@ -14,8 +15,10 @@ class NeuralDriver(Driver):
         self.network = network
         self.frame = 0
         self.last_state = None
-        self.karma = 0
+        self.prev_state = None
+        self.karma = 1
         self.life_span = life_span * 500
+        self.standard = (random() > 0.5)
 
     def drive(self, car_state: State) -> Command:
         """
@@ -61,10 +64,18 @@ class NeuralDriver(Driver):
             # print()
             ...
 
+        if self.last_state is None:
+            self.prev_state = car_state
+        else:
+            self.prev_state = self.last_state
         self.last_state = car_state
+        self.command = command
 
         if self.frame % 10 == 0:
-            self.calculate_karma()
+            if self.standard:
+                self.karma += self.calculate_karma()
+            else:
+                self.karma += self.calculate_karma_alternate()
 
         self.frame = (1 + self.frame) % 100000
 
@@ -72,12 +83,24 @@ class NeuralDriver(Driver):
 
     def calculate_karma(self):
         car_state = self.last_state
-        self.karma += car_state.distance_from_start
+        karma = 0
         if math.fabs(car_state.distance_from_center) > 0.99:
-            self.karma -= 500
+            karma -= 500
         else:
-            self.karma += car_state.speed_x * (math.cos(car_state.angle) - math.fabs(math.sin(car_state.angle)) - math.fabs(car_state.distance_from_center))
-        #self.karma = car_state.distance_from_start * self.karma
+            karma += car_state.speed_x * (math.cos(car_state.angle) - math.fabs(math.sin(car_state.angle)) - math.fabs(car_state.distance_from_center))
+        return karma
+
+    def calculate_karma_alternate(self):
+        car_state = self.last_state
+        car_state_1 = self.prev_state
+        karma = 0
+        if math.fabs(car_state.distance_from_center) > 0.99:
+            karma -= 5
+        elif math.fabs(car_state.distance_from_center) > 0.85:
+            karma += (car_state.distance_from_center - car_state_1.distance_from_center) * (math.cos(car_state.angle) - math.fabs(math.sin(car_state.angle)))
+        else:
+            karma += (car_state.distance_from_center - car_state_1.distance_from_center) * (math.cos(car_state.angle) - math.fabs(math.sin(car_state.angle)) - (((math.fabs(car_state.distance_from_center) - 0.85) ** 2)/0.0225))
+        return karma
 
 
 if __name__ == '__main__':

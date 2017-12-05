@@ -14,14 +14,14 @@ FNULL = open(os.devnull, 'w')
 
 class EvolutionConfig:
     def __init__(self, n_candidates=10,
-                 n_trails=100,
+                 n_generations=100,
                  n_discard=8,
                  save_frequency=1,
                  mutation_normal_mean=0,
                  mutation_normal_std=0.001,
                  mutation_probability=0.3):
         self.n_candidates = n_candidates  # the number of candidates to generate
-        self.n_trails = n_trails  # number of trails
+        self.n_generations = n_generations  # number of generations
         self.n_discard = n_discard  # number of candidates to discard
         self.save_frequency = save_frequency
         self.mutation_normal_mean = mutation_normal_mean
@@ -56,9 +56,9 @@ class Mutator:
 
         return new_model
 
-    def evolve(self, seed_model, config: EvolutionConfig):
+    def populate(self, seed_models, config: EvolutionConfig):
         for i in range(config.n_candidates):
-            yield self.mutate(seed_model, config)
+            yield self.mutate(random.choice(seed_models), config)
 
 
 class SimulatedEvolution:
@@ -78,24 +78,26 @@ class SimulatedEvolution:
         print(statement)
 
     def simulate(self):
-        generations = self.seed_models
-        for trail_number in range(self.evolution_config.n_trails):
-            self._log("Evolving Generation {}".format(trail_number))
+        parents = self.seed_models
+        for generation_number in range(self.evolution_config.n_generations):
+            self._log("Evolving Generation {}".format(generation_number))
             candidate_set = []
-            for generation in generations:
-                for candidate in self.mutator.evolve(generation, self.evolution_config):
-                    candidate_set.append((candidate,
-                                          self.fitness_function.evaluate_fitness(self.feature_transformer, candidate, trail_number)))
-                    print([c[1] for c in candidate_set])
+            for candidate in self.mutator.populate(parents, self.evolution_config):
+                candidate_set.append((candidate,
+                                      self.fitness_function.evaluate_fitness(self.feature_transformer, candidate, generation_number)))
+                print([c[1] for c in candidate_set])
 
-            candidate_set.sort(key=lambda _: _[1])
+            candidate_set.sort(key=lambda _: -_[1])
             # keep the ones that score the highest
-            generations = candidate_set[self.evolution_config.n_discard:]
-            max_fitness = max(generations, key=lambda _: _[1])[1]
-            generations = [g[0] for g in generations]
+            parents = self.selection(candidate_set, self.evolution_config.n_discard)
+            max_fitness = max(parents, key=lambda _: _[1])[1]
+            parents = [g[0] for g in parents]
             print("Max fitness: {}".format(max_fitness))
-            if trail_number % self.evolution_config.save_frequency == 0:
-                self.model_save_routine.save(random.choice(generations), trail_number)
+            if generation_number % self.evolution_config.save_frequency == 0:
+                self.model_save_routine.save(random.choice(parents), generation_number)
+
+    def selection(self, candidates, cutoff):
+        return candidates[:cutoff]
 
 
 class PyTorchSaveModelRoutine:
@@ -112,8 +114,8 @@ class PyTorchSaveModelRoutine:
         if not os.path.exists(path):
             os.mkdir(path)
 
-    def save(self, model, n_trail):
-        torch.save(model, os.path.join(self.path_, "{0:03d}_model.pty".format(n_trail)))
+    def save(self, model, n_generations):
+        torch.save(model, os.path.join(self.path_, "{0:03d}_model.pty".format(n_generations)))
 
 
 class DriverEnvironment:
@@ -155,7 +157,7 @@ if __name__ == '__main__':
     seed_models = [torch.load(sm) for sm in seed_models]
     feature_transformer = FeatureTransformer()
 
-    evolution_config = EvolutionConfig(n_candidates=3, n_discard=1, n_trails=1000)
+    evolution_config = EvolutionConfig(n_candidates=10, n_discard=8, n_generations=1000)
     evolver = SimulatedEvolution(seed_models, feature_transformer,
                                  mutator=Mutator(),
                                  fitness_function=DriverEnvironment("./config_files"),
