@@ -80,12 +80,13 @@ class SimulatedEvolution:
     def simulate(self):
         generations = self.seed_models
         for trail_number in range(self.evolution_config.n_trails):
-            self._log("Executing trail {}".format(trail_number))
+            self._log("Evolving Generation {}".format(trail_number))
             candidate_set = []
             for generation in generations:
                 for candidate in self.mutator.evolve(generation, self.evolution_config):
                     candidate_set.append((candidate,
-                                          self.fitness_function.evaluate_fitness(self.feature_transformer, candidate)))
+                                          self.fitness_function.evaluate_fitness(self.feature_transformer, candidate, trail_number)))
+                    print([c[1] for c in candidate_set])
 
             candidate_set.sort(key=lambda _: _[1])
             # keep the ones that score the highest
@@ -124,7 +125,7 @@ class DriverEnvironment:
         self.command = "torcs -r {}".format(os.path.abspath(race_config_path))
         self.logs_path = logs_path
 
-    def evaluate_fitness(self, feature_transformer, model):
+    def evaluate_fitness(self, feature_transformer, model, generation):
         proc = None
         try:
             proc = subprocess.Popen(self.command.split(), stdout=FNULL)
@@ -133,12 +134,13 @@ class DriverEnvironment:
             if return_code is not None:
                 raise ValueError("Some error occurred. Either torcs isn't installed or the config file is not present")
 
-            neural_driver = NeuralDriver(feature_transformer, model)
+            neural_driver = NeuralDriver(feature_transformer, model, generation)
             pytocl_main(neural_driver)
             os.wait()
             end_state = neural_driver.last_state
+            fitness = neural_driver.karma
 
-            return end_state.distance_raced
+            return fitness
         finally:
             if proc:
                 try:
