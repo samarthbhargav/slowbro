@@ -1,19 +1,24 @@
 import sys
-
+import math
 import torch
 
+from random import random
 from neural_net import CarControl, FeatureTransformer
 from simple_neural_driver import *
 
 
 class NeuralDriver(Driver):
-    def __init__(self, feature_transformer, network):
+    def __init__(self, feature_transformer, network, life_span):
         super().__init__()
 
         self.feature_transformer = feature_transformer
         self.network = network
         self.frame = 0
         self.last_state = None
+        self.prev_state = None
+        self.karma = 1
+        self.life_span = life_span * 500
+        self.standard = (random() > 0.5)
 
     def drive(self, car_state: State) -> Command:
         """
@@ -58,10 +63,44 @@ class NeuralDriver(Driver):
             # print(car_state)
             # print()
             ...
+
+        if self.last_state is None:
+            self.prev_state = car_state
+        else:
+            self.prev_state = self.last_state
+        self.last_state = car_state
+        self.command = command
+
+        if self.frame % 10 == 0:
+            if self.standard:
+                self.karma += self.calculate_karma()
+            else:
+                self.karma += self.calculate_karma_alternate()
+
         self.frame = (1 + self.frame) % 100000
 
-        self.last_state = car_state
         return command
+
+    def calculate_karma(self):
+        car_state = self.last_state
+        karma = 0
+        if math.fabs(car_state.distance_from_center) > 0.99:
+            karma -= 500
+        else:
+            karma += car_state.speed_x * (math.cos(car_state.angle) - math.fabs(math.sin(car_state.angle)) - math.fabs(car_state.distance_from_center))
+        return karma
+
+    def calculate_karma_alternate(self):
+        car_state = self.last_state
+        car_state_1 = self.prev_state
+        karma = 0
+        if math.fabs(car_state.distance_from_center) > 0.99:
+            karma -= 5
+        elif math.fabs(car_state.distance_from_center) > 0.85:
+            karma += (car_state.distance_from_center - car_state_1.distance_from_center) * (math.cos(car_state.angle) - math.fabs(math.sin(car_state.angle)))
+        else:
+            karma += (car_state.distance_from_center - car_state_1.distance_from_center) * (math.cos(car_state.angle) - math.fabs(math.sin(car_state.angle)) - (((math.fabs(car_state.distance_from_center) - 0.85) ** 2)/0.0225))
+        return karma
 
 
 if __name__ == '__main__':
@@ -74,7 +113,7 @@ if __name__ == '__main__':
         control = CarControl(feature_transformer.size, [10, 10])
     sys.argv = sys.argv[:1]
 
-    driver = NeuralDriver(feature_transformer, control)
+    driver = NeuralDriver(feature_transformer, control, 1)
 
     from pytocl.main import main as pytocl_main
 
