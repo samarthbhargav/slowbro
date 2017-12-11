@@ -7,7 +7,7 @@ from pytocl.car import State
 
 
 class FeatureTransformer:
-    def __init__(self, exclude_from_sensor_dict=None, n_history=10, size=31):
+    def __init__(self, exclude_from_sensor_dict=None, n_history=50, size=31):
         self.previous_states = []
         self.n_history = n_history
         self.size = size
@@ -53,7 +53,7 @@ class CarControl(nn.Module):
         super(CarControl, self).__init__()
 
         print("Number of inputs: {}".format(n_inputs))
-        self.hidden_layer_1 = nn.Linear(n_inputs * 10, layer_sizes[0])
+        self.hidden_layer_1 = nn.Linear(n_inputs * 50, layer_sizes[0])
         self.hidden_layer_2 = nn.Linear(layer_sizes[0], layer_sizes[1])
         self.hidden_layer_3 = nn.Linear(layer_sizes[1], layer_sizes[2])
         self.output = nn.Linear(layer_sizes[-1], 3)
