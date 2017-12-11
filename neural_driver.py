@@ -19,6 +19,7 @@ class NeuralDriver(Driver):
         self.karma = 1
         self.life_span = life_span * 500
         self.standard = (random() > 0.5)
+        self.command = None
 
     def drive(self, car_state: State) -> Command:
         """
@@ -64,18 +65,25 @@ class NeuralDriver(Driver):
             # print()
             ...
 
+        '''
         if self.last_state is None:
             self.prev_state = car_state
         else:
             self.prev_state = self.last_state
+        '''
         self.last_state = car_state
         self.command = command
 
         if self.frame % 10 == 0:
-            if self.standard:
-                self.karma += self.calculate_karma()
-            else:
-                self.karma += self.calculate_karma_alternate()
+            high_speed_reward_criteria = 150
+            if car_state.distance_from_start < 500:
+                high_speed_reward_criteria = 100
+            high_speed_reward = 10 if math.fabs(car_state.speed_x) > high_speed_reward_criteria else -10000
+            racing_reward = (car_state.distance_from_start / 10000) * (car_state.speed_x / 300) * 1000
+            no_braking_reward = 10 if command.brake == 0 else -10000
+            no_damage_reward = 10 if car_state.damage == 0 else -10000
+            driver_on_road_reward = 10 if math.fabs(car_state.distance_from_center) < 0.85 else -10000
+            self.karma += (racing_reward * (0.5) + no_damage_reward * (1.5) + no_braking_reward * (2) + driver_on_road_reward * (5) + high_speed_reward * (0.5)) * 0.0001
 
         self.frame = (1 + self.frame) % 100000
 

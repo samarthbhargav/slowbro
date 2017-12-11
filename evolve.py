@@ -18,8 +18,8 @@ class EvolutionConfig:
                  n_discard=8,
                  save_frequency=1,
                  mutation_normal_mean=0,
-                 mutation_normal_std=0.001,
-                 mutation_probability=0.3):
+                 mutation_normal_std=0.01,
+                 mutation_probability=0.9):
         self.n_candidates = n_candidates  # the number of candidates to generate
         self.n_generations = n_generations  # number of generations
         self.n_discard = n_discard  # number of candidates to discard
@@ -88,15 +88,18 @@ class SimulatedEvolution:
                 print([c[1] for c in candidate_set])
 
             candidate_set.sort(key=lambda _: -_[1])
+            print("sorted", [c[1] for c in candidate_set])
             # keep the ones that score the highest
-            parents = self.selection(candidate_set, self.evolution_config.n_discard)
-            max_fitness = max(parents, key=lambda _: _[1])[1]
+            parents = self.selection(candidate_set, self.evolution_config)
+            print("winners", parents)
+            winner, max_fitness = max(parents, key=lambda _: _[1])
             parents = [g[0] for g in parents]
             print("Max fitness: {}".format(max_fitness))
             if generation_number % self.evolution_config.save_frequency == 0:
-                self.model_save_routine.save(random.choice(parents), generation_number)
+                self.model_save_routine.save(winner, generation_number)
 
-    def selection(self, candidates, cutoff):
+    def selection(self, candidates, config):
+        cutoff = config.n_candidates - config.n_discard
         return candidates[:cutoff]
 
 
@@ -153,7 +156,7 @@ class DriverEnvironment:
 
 
 if __name__ == '__main__':
-    seed_models = ["models/supervisor/77_intermediate.pty", "models/supervisor/3.pty"]
+    seed_models = ["models/supervisor/11.pty"]
     seed_models = [torch.load(sm) for sm in seed_models]
     feature_transformer = FeatureTransformer()
 

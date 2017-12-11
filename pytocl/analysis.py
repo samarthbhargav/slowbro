@@ -19,12 +19,11 @@ class DataLogWriter:
         timestr = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S')
         fname = 'drivelog-{}.pickle'.format(timestr)
         fpath = os.path.abspath(os.path.join(dirname, fname))
-        #_logger.info('Logging data snapshots to {}.'.format(fpath))
+        _logger.info('Logging data snapshots to {}.'.format(fpath))
 
-        #os.makedirs(dirname, exist_ok=True)
-        #self.file = open(fpath, 'wb')
-        self.file = None
-        #self.pickler = pickle.Pickler(self.file)
+        os.makedirs(dirname, exist_ok=True)
+        self.file = open(fpath, 'wb')
+        self.pickler = pickle.Pickler(self.file)
         self.numlogged = 0
 
     def __del__(self):
@@ -33,19 +32,17 @@ class DataLogWriter:
 
     def log(self, state, command):
         """Log pair of data."""
-        '''
         if self.logging:
-            #self.pickler.dump((state, command))
+            self.pickler.dump((state, command))
             self.numlogged += 1
         else:
             _logger.warning('Logger closed, cannot log data to file.')
-        '''
 
     def close(self):
         """End logging by closing the associated file."""
         if self.logging:
-            #self.file.close()
-            #_logger.info('Saved {} log entries.'.format(self.numlogged))
+            self.file.close()
+            _logger.info('Saved {} log entries.'.format(self.numlogged))
             self.file = None
             self.pickler = None
             self.numlogged = 0
