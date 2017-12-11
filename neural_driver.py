@@ -74,16 +74,15 @@ class NeuralDriver(Driver):
         self.last_state = car_state
         self.command = command
 
-        if self.frame % 10 == 0:
+        if self.frame % 100 == 0:
             high_speed_reward_criteria = 150
             if car_state.distance_from_start < 500:
                 high_speed_reward_criteria = 100
-            high_speed_reward = 10 if math.fabs(car_state.speed_x) > high_speed_reward_criteria else -10000
-            racing_reward = (car_state.distance_from_start / 10000) * (car_state.speed_x / 300) * 1000
-            no_braking_reward = 10 if command.brake == 0 else -10000
-            no_damage_reward = 10 if car_state.damage == 0 else -10000
-            driver_on_road_reward = 10 if math.fabs(car_state.distance_from_center) < 0.85 else -10000
-            self.karma += (racing_reward * (0.5) + no_damage_reward * (1.5) + no_braking_reward * (2) + driver_on_road_reward * (5) + high_speed_reward * (0.5)) * 0.0001
+            high_speed_reward = 10 if math.fabs(car_state.speed_x) > high_speed_reward_criteria else -10
+            no_braking_reward = 10 if command.brake == 0 else -10
+            no_damage_reward = 10 if car_state.damage == 0 else -10
+            driver_on_road_reward = 100 if  math.fabs(car_state.distance_from_center) < 0.85 else -100
+            self.karma += (no_damage_reward + no_braking_reward + driver_on_road_reward + high_speed_reward) * 0.0001
 
         self.frame = (1 + self.frame) % 100000
 
