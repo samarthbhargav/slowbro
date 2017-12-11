@@ -1,10 +1,13 @@
 import sys
+import os
 import math
-import torch
 
 from random import random
 from neural_net import CarControl, FeatureTransformer
 from simple_neural_driver import *
+from torch.autograd import Variable
+
+import torch
 
 
 class NeuralDriver(Driver):
@@ -28,7 +31,11 @@ class NeuralDriver(Driver):
         # print(car_state)
         # print()
         feature_vector = self.feature_transformer.transform(car_state)
-        steering, brake, acceleration = self.network(feature_vector).data
+        if torch.__version__.startswith("0.1.12"):
+            modified_feature_vector = Variable(feature_vector.view(1, 1550), requires_grad=True)
+            steering, brake, acceleration = self.network(modified_feature_vector.data).data[0]
+        else:
+            steering, brake, acceleration = self.network(feature_vector).data
         # print("steering", steering)
         # print("brake", brake)
         # print("acceleration", acceleration)
