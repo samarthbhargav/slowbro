@@ -73,28 +73,31 @@ class SimulatedEvolution:
         self.mutator = mutator
         self.fitness_function = fitness_function
         self.model_save_routine = model_save_routine
+        self.logger = open("evolve_log.log", "w")
 
     def _log(self, statement):
-        print(statement)
+        self.logger.write(str(statement) + "\n")
+        self.logger.flush()
 
     def simulate(self):
+
         parents = self.seed_models
         for generation_number in range(self.evolution_config.n_generations):
-            self._log("Evolving Generation {}".format(generation_number))
+            self._log("************** Evolving Generation {} *******************".format(generation_number))
             candidate_set = []
             for candidate in self.mutator.populate(parents, self.evolution_config):
                 candidate_set.append((candidate,
                                       self.fitness_function.evaluate_fitness(self.feature_transformer, candidate, generation_number)))
-                print([c[1] for c in candidate_set])
+                self._log([c[1] for c in candidate_set])
 
             candidate_set.sort(key=lambda _: -_[1])
-            print("sorted", [c[1] for c in candidate_set])
+            self._log("sorted: {}".format([c[1] for c in candidate_set]))
             # keep the ones that score the highest
             parents = self.selection(candidate_set, self.evolution_config)
-            print("winners", parents)
+            self._log("winners {}".format(parents))
             winner, max_fitness = max(parents, key=lambda _: _[1])
             parents = [g[0] for g in parents]
-            print("Max fitness: {}".format(max_fitness))
+            self._log("Max fitness: {}".format(max_fitness))
             if generation_number % self.evolution_config.save_frequency == 0:
                 self.model_save_routine.save(winner, generation_number)
 
@@ -156,7 +159,7 @@ class DriverEnvironment:
 
 
 if __name__ == '__main__':
-    seed_models = ["models/supervisor/11.pty"]
+    seed_models = ["models/supervisor/3.pty"]
     seed_models = [torch.load(sm) for sm in seed_models]
     feature_transformer = FeatureTransformer()
 
@@ -164,6 +167,7 @@ if __name__ == '__main__':
     evolver = SimulatedEvolution(seed_models, feature_transformer,
                                  mutator=Mutator(),
                                  fitness_function=DriverEnvironment("./config_files"),
-                                 model_save_routine=PyTorchSaveModelRoutine("models", "3_77"),
+                                 model_save_routine=PyTorchSaveModelRoutine("models",
+                                     "3_evolved"),
                                  evolution_config=evolution_config)
     evolver.simulate()
