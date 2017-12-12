@@ -156,7 +156,7 @@ class DriverEnvironment:
 
 
 if __name__ == '__main__':
-    seed_models = ["models/supervisor/11.pty"]
+    seed_models = ["models/supervisor/3.pty"]
     seed_models = [torch.load(sm) for sm in seed_models]
     feature_transformer = FeatureTransformer()
 
@@ -164,6 +164,6 @@ if __name__ == '__main__':
     evolver = SimulatedEvolution(seed_models, feature_transformer,
                                  mutator=Mutator(),
                                  fitness_function=DriverEnvironment("./config_files"),
-                                 model_save_routine=PyTorchSaveModelRoutine("models", "3_77"),
+                                 model_save_routine=PyTorchSaveModelRoutine("models", "final"),
                                  evolution_config=evolution_config)
     evolver.simulate()

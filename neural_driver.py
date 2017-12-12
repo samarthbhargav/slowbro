@@ -32,7 +32,7 @@ class NeuralDriver(Driver):
         # print()
         feature_vector = self.feature_transformer.transform(car_state)
         if torch.__version__.startswith("0.1.12"):
-            modified_feature_vector = Variable(feature_vector.view(1, 1550), requires_grad=True)
+            modified_feature_vector = Variable(feature_vector.view(1, 310), requires_grad=True)
             steering, brake, acceleration = self.network(modified_feature_vector.data).data[0]
         else:
             steering, brake, acceleration = self.network(feature_vector).data
@@ -81,16 +81,10 @@ class NeuralDriver(Driver):
         self.last_state = car_state
         self.command = command
 
-        if self.frame % 10 == 0:
-            high_speed_reward_criteria = 150
-            if car_state.distance_from_start < 500:
-                high_speed_reward_criteria = 100
-            high_speed_reward = 10 if math.fabs(car_state.speed_x) > high_speed_reward_criteria else -10000
-            racing_reward = (car_state.distance_from_start / 10000) * (car_state.speed_x / 300) * 1000
-            no_braking_reward = 10 if command.brake == 0 else -10000
-            no_damage_reward = 10 if car_state.damage == 0 else -10000
-            driver_on_road_reward = 10 if math.fabs(car_state.distance_from_center) < 0.85 else -10000
-            self.karma += (racing_reward * (0.5) + no_damage_reward * (1.5) + no_braking_reward * (2) + driver_on_road_reward * (5) + high_speed_reward * (0.5)) * 0.0001
+        if self.frame % 1 == 0:
+            high_speed_reward = (car_state.speed_x / 300)
+            racing_reward = (car_state.distance_from_start / 5000)
+            self.karma += racing_reward + high_speed_reward
 
         self.frame = (1 + self.frame) % 100000
 
