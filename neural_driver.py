@@ -32,7 +32,7 @@ class NeuralDriver(Driver):
         # print()
         feature_vector = self.feature_transformer.transform(car_state)
         if torch.__version__.startswith("0.1.12"):
-            modified_feature_vector = Variable(feature_vector.view(1, 1550), requires_grad=True)
+            modified_feature_vector = Variable(feature_vector.view(1, 310), requires_grad=True)
             steering, brake, acceleration = self.network(modified_feature_vector.data).data[0]
         else:
             steering, brake, acceleration = self.network(feature_vector).data
